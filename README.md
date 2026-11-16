@@ -20,10 +20,8 @@ After all the dependencies have been satisfied, run the following commands to bu
 
 ```sh
 cd your/project/dir
-mkdir build
-cd build
-cmake ..
-make -j32
+cmake -S . -B build
+cmake --build build --parallel
 ```
 
 After all the works have done, run the executable file `LaTeX` in the directory `build` to check the demo.
@@ -190,13 +188,13 @@ The red blocks represent the depth of the boxes, and these rectangles represent 
 Basically, the program implemented an empty graphics interface (check [this file](src/samples/mem_check_main.cpp)), all the other implementations will be ignored if the `MEM_CHECK` option is defined, the default is **OFF**. It is useful when using `valgrind` to detect memory leaks and memory misuse, make sure you have compiled it with the option `-DCMAKE_BUILD_TYPE=Debug` before using `valgrind`. The following script shows how to do memory check using `valgrind`.
 
 ```sh
-cmake 
+cmake -S . -B build \
     -DCMAKE_BUILD_TYPE=Debug \
     -DGRAPHICS_DEBUG=ON \
     -DMEM_CHECK=ON \
-    -DHAVE_LOG=OFF ..
-make -j32
-valgrind --leak-check=full -v ./LaTeX
+    -DHAVE_LOG=OFF
+cmake --build build --parallel
+valgrind --leak-check=full -v ./build/LaTeX
 ```
 
 will produce:
@@ -219,15 +217,6 @@ will produce:
 ==26443== To see them, rerun with: --leak-check=full --show-leak-kinds=all
 ==26443== 
 ==26443== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
-```
-
-## Meson build manifest
-
-You can also build the cairo version of cLaTeXMath with Meson:
-```sh
-meson _build -DTARGET_DEMO=NONE # you can specify TARGET_DEMO=GTK if you want a GTK+ GUI to test cLaTeXMath, otherwise only the library (TARGET_DEVEL) will be built.
-ninja -C _build
-_build/clatexmath
 ```
 
 # Prebuilt packages

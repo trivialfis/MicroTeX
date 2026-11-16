@@ -5,31 +5,6 @@ on:
   - pull_request
 
 jobs:
-  build_by_meson:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix: 
-        os: 
-          - ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2
-    - name: Downloading dependencies 📥
-      run: sudo apt-get install build-essential meson libgtksourceviewmm-3.0-dev libgtkmm-3.0-dev libtinyxml2-dev
-    - name: Configure 🔧
-      run: meson _build -DTARGET_DEMO=GTK
-    - name: Compile 🎲
-      run: ninja -C _build
-    - name: Compress build artifacts 📦
-      run: |
-        pushd _build
-        tar -c * | zstd -o $GITHUB_WORKSPACE/artifacts.tar.zst
-        popd
-    - name: Upload build artifacts 📤
-      uses: actions/upload-artifact@v1
-      with:
-        name: Build artifacts
-        path: artifacts.tar.zst
-
   build_by_cmake:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -40,15 +15,8 @@ jobs:
     - name: Downloading Source Code 📥
       uses: actions/checkout@v2
     - name: Downloading dependencies 📥
-      run: sudo apt-get install build-essential meson libgtksourceviewmm-3.0-dev libgtkmm-3.0-dev libtinyxml2-dev
+      run: sudo apt-get install build-essential cmake libgtksourceviewmm-3.0-dev libgtkmm-3.0-dev libtinyxml2-dev
     - name: Configure 🔧
-      run: |
-        cd ${{ github.workspace }}
-        mkdir build
-        cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -G Ninja
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
     - name: Compile 🎲
-      run: |
-        cd ${{ github.workspace }}
-        cd build
-        ninja
+      run: cmake --build build --parallel

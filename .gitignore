@@ -3,9 +3,6 @@ macro.txt
 rp.txt
 symbols.txt
 
-# meson
-_build/
-
 #ignore obj
 obj/
 
