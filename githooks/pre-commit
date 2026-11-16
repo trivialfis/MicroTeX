@@ -12,7 +12,7 @@ workingDir=$(pwd)
 
 cd build
 cmake -DCMAKE_BUILD_TYPE=Debug -DGRAPHICS_DEBUG=ON -DMEM_CHECK=OFF -DHAVE_LOG=ON ..
-make -j32
+cmake --build . --parallel
 
 cd $workingDir
 
