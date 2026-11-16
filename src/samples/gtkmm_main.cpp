@@ -6,23 +6,26 @@
 #include "platform/cairo/graphic_cairo.h"
 #include "samples.h"
 
-#include <gdkmm/rgba.h>
+#include <cairomm/exception.h>
 #include <gtkmm/adjustment.h>
+#include <gtkmm/alertdialog.h>
 #include <gtkmm/application.h>
 #include <gtkmm/box.h>
 #include <gtkmm/button.h>
 #include <gtkmm/drawingarea.h>
-#include <gtkmm/filechooserdialog.h>
+#include <gtkmm/eventcontrollerkey.h>
+#include <gtkmm/error.h>
+#include <gtkmm/filedialog.h>
+#include <gtkmm/label.h>
 #include <gtkmm/paned.h>
 #include <gtkmm/scrolledwindow.h>
 #include <gtkmm/spinbutton.h>
+#include <gtkmm/textview.h>
 #include <gtkmm/window.h>
 
-#include <gtksourceviewmm/init.h>
-#include <gtksourceviewmm/languagemanager.h>
-#include <gtksourceviewmm/view.h>
-
 #include <pangomm/init.h>
+
+#include <ios>
 
 using namespace tex;
 
@@ -35,32 +38,15 @@ private:
   void checkInvalidate() {
     if (_render == nullptr) return;
 
-    int parent_width = get_parent()->get_width();
-    int parent_height = get_parent()->get_height();
-    int target_width = parent_width;
-    int target_height = parent_height;
-
-    int extra = (int) (_padding * 2);
-    if (parent_width < _render->getWidth() + extra) {
-      target_width = _render->getWidth() + extra;
-    }
-    if (parent_height < _render->getHeight() + extra) {
-      target_height = _render->getHeight() + extra;
-    }
-
-    set_size_request(target_width, target_height);
-
-    auto win = get_window();
-    if (win) {
-      auto al = get_allocation();
-      Gdk::Rectangle r(0, 0, al.get_width(), al.get_height());
-      win->invalidate_rect(r, false);
-    }
+    set_content_width(getRenderWidth());
+    set_content_height(getRenderHeight());
+    queue_draw();
   }
 
 public:
   TeXDrawingArea() : _render(nullptr), _text_size(20.f), _padding(10) {
-    override_background_color(Gdk::RGBA("White"));
+    set_expand(true);
+    set_draw_func(sigc::mem_fun(*this, &TeXDrawingArea::on_draw));
   }
 
   float getTextSize() {
@@ -80,7 +66,7 @@ public:
     delete _render;
     _render = LaTeX::parse(
       latex,
-      get_allocated_width() - _padding * 2,
+      max(1, get_width() - _padding * 2),
       _text_size,
       _text_size / 3.f,
       0xff424242
@@ -112,20 +98,16 @@ public:
   }
 
 protected:
-  bool on_draw(const Cairo::RefPtr<Cairo::Context>& cr) override {
+  void on_draw(const Cairo::RefPtr<Cairo::Context>& cr, int, int) {
     cr->set_source_rgb(1, 1, 1);
-    cr->rectangle(0, 0, get_width(), get_height());
-    cr->fill();
-    if (_render == nullptr) return true;
-    Graphics2D_cairo g2(cr);
-    _render->draw(g2, _padding, _padding);
-    return true;
+    cr->paint();
+    drawInContext(cr);
   }
 };
 
 class MainWindow : public Gtk::Window {
 protected:
-  Gsv::View _tex_editor;
+  Gtk::TextView _tex_editor;
   Gtk::SpinButton _size_spin;
   TeXDrawingArea _tex;
 
@@ -137,6 +119,7 @@ protected:
   Gtk::Paned _main_box;
 
   Samples _samples;
+  Glib::RefPtr<Gtk::FileDialog> _save_dialog;
 
 public:
   MainWindow()
@@ -144,34 +127,31 @@ public:
       _next("Next Example"),
       _rendering("Rendering"),
       _save("Save as SVG"),
-      _side_box(Gtk::ORIENTATION_VERTICAL),
+      _side_box(Gtk::Orientation::VERTICAL),
+      _bottom_box(Gtk::Orientation::HORIZONTAL),
+      _main_box(Gtk::Orientation::HORIZONTAL),
       _samples() {
-    // init before use
-    Gsv::init();
-
-    set_border_width(10);
-    set_size_request(1220, 640);
+    set_title("MicroTeX");
+    set_default_size(1220, 640);
+    _main_box.set_margin(10);
 
     _drawing_scroller.set_size_request(720);
-    _drawing_scroller.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
-    _drawing_scroller.add(_tex);
+    _drawing_scroller.set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
+    _drawing_scroller.set_child(_tex);
 
-    auto lang = Gsv::LanguageManager::get_default()->get_language("latex");
-    auto buffer = Gsv::Buffer::create(lang);
-    buffer->set_highlight_syntax(true);
-    _tex_editor.set_source_buffer(buffer);
-    _tex_editor.set_show_line_numbers(true);
-    _tex_editor.set_highlight_current_line(true);
-    _tex_editor.set_tab_width(4);
-    _tex_editor.override_font(Pango::FontDescription("Monospace 12"));
-    _tex_editor.signal_key_press_event().connect(
+    _tex_editor.set_monospace(true);
+    _tex_editor.set_margin(5);
+    auto key_controller = Gtk::EventControllerKey::create();
+    key_controller->set_propagation_phase(Gtk::PropagationPhase::CAPTURE);
+    key_controller->signal_key_pressed().connect(
       sigc::mem_fun(*this, &MainWindow::on_text_key_press), false
     );
-    _tex_editor.set_border_width(5);
+    _tex_editor.add_controller(key_controller);
 
     _text_scroller.set_size_request(480);
-    _text_scroller.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
-    _text_scroller.add(_tex_editor);
+    _text_scroller.set_policy(Gtk::PolicyType::AUTOMATIC, Gtk::PolicyType::AUTOMATIC);
+    _text_scroller.set_child(_tex_editor);
+    _text_scroller.set_expand(true);
 
     Glib::RefPtr<Gtk::Adjustment> adj = Gtk::Adjustment::create(_tex.getTextSize(), 1, 300);
     adj->signal_value_changed().connect(
@@ -190,23 +170,25 @@ public:
     _save.set_sensitive(_tex.isRenderDisplayed());
 
     _bottom_box.set_spacing(10);
-    _bottom_box.pack_start(_size_change_info, Gtk::PACK_SHRINK);
-    _bottom_box.pack_start(_size_spin);
-    _bottom_box.pack_start(_next, Gtk::PACK_SHRINK);
-    _bottom_box.pack_start(_rendering, Gtk::PACK_SHRINK);
-    _bottom_box.pack_start(_save, Gtk::PACK_SHRINK);
+    _bottom_box.append(_size_change_info);
+    _bottom_box.append(_size_spin);
+    _bottom_box.append(_next);
+    _bottom_box.append(_rendering);
+    _bottom_box.append(_save);
 
     _side_box.set_spacing(5);
     _side_box.set_size_request(480);
-    _side_box.pack_start(_text_scroller);
-    _side_box.pack_start(_bottom_box, Gtk::PACK_SHRINK);
+    _side_box.append(_text_scroller);
+    _side_box.append(_bottom_box);
 
-    _main_box.pack1(_drawing_scroller, true, false);
-    _main_box.pack2(_side_box, true, false);
+    _main_box.set_start_child(_drawing_scroller);
+    _main_box.set_end_child(_side_box);
+    _main_box.set_resize_start_child(true);
+    _main_box.set_resize_end_child(true);
+    _main_box.set_shrink_start_child(false);
+    _main_box.set_shrink_end_child(false);
 
-    add(_main_box);
-
-    show_all_children();
+    set_child(_main_box);
   }
 
   ~MainWindow() override = default;
@@ -221,20 +203,42 @@ protected:
   }
 
   void on_save_clicked() {
-    Gtk::FileChooserDialog dialog(*this, "Save as SVG", Gtk::FILE_CHOOSER_ACTION_SAVE);
-    dialog.add_button("Cancel", Gtk::RESPONSE_CANCEL);
-    dialog.add_button("Confirm", Gtk::RESPONSE_OK);
-    int result = dialog.run();
-    if (result == Gtk::RESPONSE_OK) {
-      auto file = dialog.get_filename();
+    if (!_save_dialog) {
+      _save_dialog = Gtk::FileDialog::create();
+      _save_dialog->set_title("Save as SVG");
+      _save_dialog->set_initial_name("formula.svg");
+    }
+    _save_dialog->save(*this, sigc::mem_fun(*this, &MainWindow::on_save_response));
+  }
+
+  void on_save_response(const Glib::RefPtr<Gio::AsyncResult>& result) {
+    try {
+      auto file = _save_dialog->save_finish(result);
+      if (!file || file->get_path().empty()) return;
       auto surface = Cairo::SvgSurface::create(
-        file,
+        file->get_path(),
         _tex.getRenderWidth(),
         _tex.getRenderHeight()
       );
       auto context = Cairo::Context::create(surface);
       _tex.drawInContext(context);
+      surface->finish();
+    } catch (const Gtk::DialogError& error) {
+      if (error.code() != Gtk::DialogError::DISMISSED &&
+          error.code() != Gtk::DialogError::CANCELLED) {
+        show_save_error(error.what());
+      }
+    } catch (const Cairo::logic_error& error) {
+      show_save_error(error.what());
+    } catch (const std::ios_base::failure& error) {
+      show_save_error(error.what());
     }
+  }
+
+  void show_save_error(const std::string& detail) {
+    auto dialog = Gtk::AlertDialog::create("Could not save SVG");
+    dialog->set_detail(detail);
+    dialog->show(*this);
   }
 
   void on_rendering_clicked() {
@@ -248,8 +252,8 @@ protected:
     _tex.setTextSize(size);
   }
 
-  bool on_text_key_press(GdkEventKey* e) {
-    if (e->keyval == GDK_KEY_Return && e->state & GDK_CONTROL_MASK) {
+  bool on_text_key_press(guint keyval, guint, Gdk::ModifierType state) {
+    if (keyval == GDK_KEY_Return && (state & Gdk::ModifierType::CONTROL_MASK) != Gdk::ModifierType{}) {
       on_rendering_clicked();
       return true;
     }
@@ -356,10 +360,8 @@ int runHeadless(const vector<string>& opts) {
 }
 
 int runWindow(int argc, char* argv[]) {
-  auto app = Gtk::Application::create(argc, argv, "io.nano.LaTeX");
-  MainWindow win;
-  int result = app->run(win);
-  return result;
+  auto app = Gtk::Application::create("io.nano.LaTeX");
+  return app->make_window_and_run<MainWindow>(argc, argv);
 }
 
 int runHelp() {

@@ -13,7 +13,7 @@ It is a dynamic, cross-platform, and embeddable LaTeX rendering library. Its mai
 First make sure you have a C++ compiler that supports `C++ 17` standard. It uses CMake to build the demo, make sure you have it installed. Currently support Windows and Linux on PC, the version on Mac OS is in the plan, and you can find the Android version in [here](https://github.com/NanoMichael/AndroidLaTeXMath).
 
 - `CygWin` or `MinGW` is recommended to be installed on Windows, and `Gdiplus` is required.
-- `GTKMM` and `GSVMM` must be installed on Linux for a GTK build.
+- On Linux, the Cairo backend requires `cairomm`, `pangomm`, Fontconfig, and tinyxml2 development packages. The GTK sample requires `gtkmm-4.0` version 4.10 or newer.
 - Qt development packages must be installed for a Qt installation.
 
 After all the dependencies have been satisfied, run the following commands to build:
@@ -203,10 +203,10 @@ will produce:
 ==26443== HEAP SUMMARY:
 ==26443==     in use at exit: 72,704 bytes in 1 blocks
 ==26443==   total heap usage: 84,520 allocs, 84,519 frees, 12,515,092 bytes allocated
-==26443== 
+==26443==
 ==26443== Searching for pointers to 1 not-freed blocks
 ==26443== Checked 111,952 bytes
-==26443== 
+==26443==
 ==26443== LEAK SUMMARY:
 ==26443==    definitely lost: 0 bytes in 0 blocks
 ==26443==    indirectly lost: 0 bytes in 0 blocks
@@ -215,7 +215,7 @@ will produce:
 ==26443==         suppressed: 0 bytes in 0 blocks
 ==26443== Reachable blocks (those to which a pointer was found) are not shown.
 ==26443== To see them, rerun with: --leak-check=full --show-leak-kinds=all
-==26443== 
+==26443==
 ==26443== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
 ```
 
@@ -229,7 +229,7 @@ Install instructions can be found on openSUSE's [software-o-o](https://github.co
 * RPM (CentOS, Fedora, Mageia, SLE & openSUSE): [software.opensuse.org//download.html?project=home:sp1rit:notekit&package=clatexmath-devel](https://software.opensuse.org//download.html?project=home%3Asp1rit%3Anotekit&package=clatexmath-devel)
 * DPKG (Debian, Raspbian & xUbuntu): [software.opensuse.org//download.html?project=home:sp1rit:notekit&package=libclatexmath-dev](https://software.opensuse.org//download.html?project=home%3Asp1rit%3Anotekit&package=libclatexmath-dev)
 
-If you just want to use cLaTeXMath for your GTK/Cairo project, this may be best way to get started. 
+If you just want to use cLaTeXMath for your GTK/Cairo project, this may be best way to get started.
 
 # How to use
 
@@ -250,7 +250,7 @@ using namespace tex;
  *
  * Also, you can use the code below to specifies your custom
  * resources directory:
- * 
+ *
  *      LaTex::init("your/resources/root/directory");
  */
 LaTeX::init();
@@ -261,7 +261,7 @@ LaTeX::init();
 You could set the point size (pixels per point) use the code below:
 
 ```c++
-/** 
+/**
  * Set the point size; the default value is 1 that means
  * use 1 pixel to represent 1 point.
  */
@@ -296,11 +296,11 @@ General mode:
 
 /**
  * The LaTeX code to parse.
- * 
+ *
  * The program uses wide string to represent UTF characters, you
  * could use the code below to convert a string with UTF-8 encoding
  * to a wide string:
- * 
+ *
  *      wstring wstr = utf82wide("A string with UTF-8 encoding.");
  */
 wstring code = L"\\int_{now}^{+\\infty} \\text{Keep trying}";
@@ -333,7 +333,7 @@ auto r = builder
     // set if the logical width of the graphics context specified
     // above is the max width to display the formula, the formula
     // will be centered if set to true; you must call this method
-    // after 'setWidth' has called, otherwise an ex_invalid_state 
+    // after 'setWidth' has called, otherwise an ex_invalid_state
     // exception will be thrown
     .setIsMaxWidth(false)
     // space between 2 lines
@@ -367,7 +367,7 @@ The code above will produce:
 
 Basically, you need to implement all the interfaces declared in [this file](src/graphic/graphic.h). There're 4 implementations list below, check it out before the start.
 
-- `graphic_cairo`: that uses `cairomm` and `gtkmm` to implement these interfaces that run in Linux, declared in [here](src/platform/cairo/graphic_cairo.h), and implemented [here](src/platform/cairo/graphic_cairo.cpp).
+- `graphic_cairo`: uses Cairo, Pango, and Fontconfig for rendering on Linux, with a GTK 4 sample application. It is declared in [here](src/platform/cairo/graphic_cairo.h), and implemented [here](src/platform/cairo/graphic_cairo.cpp).
 
 - `graphic_win32`: is a Windows implementation that uses `gdiplus` to implement these interfaces, please check [here](src/platform/gdi_win/graphic_win32.h) and [here](src/platform/gdi_win/graphic_win32.cpp).
 
@@ -475,7 +475,7 @@ public:
 
 // Define a new Unicode-block
 auto newBlock = UnicodeBlock::define(
-    newAlphabetCodePointStart, 
+    newAlphabetCodePointStart,
     newAlphabetCodePointEnd);
 
 // Register the new alphabet
@@ -554,7 +554,6 @@ that will produce:
 
 # TODO
 
-- [ ] port Gtk+ 3 to Windows and macOS
 - [ ] buitin resources
 - [ ] support for webassembly
 - [ ] native support for SVG
