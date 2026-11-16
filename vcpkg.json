@@ -1,6 +1,7 @@
 {
   "name": "cpp-latex-render",
   "version": "0.0.1",
+  "builtin-baseline": "8f363bdc11359ede4bc51e5eb32a2617538049c8",
   "dependencies": [
     "tinyxml2"
   ]

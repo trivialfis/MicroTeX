@@ -13,7 +13,6 @@ bin/
 *.layout
 /CppCheckResults.xml
 .DS_Store
-docs/
 doxyfile
 build/
 src/doc
@@ -23,3 +22,4 @@ prebuilt-scripts/
 .idea
 cmake-build-*
 .vs
+compile_commands.json
